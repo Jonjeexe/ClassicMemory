@@ -9,4 +9,3 @@
 # Terget devices : Universal 
 ```
 
-Support @OnionProject
