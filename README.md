@@ -7,6 +7,6 @@
 
 ---
 
-`
-# Magisk module 
-`
+```
+# Kernel based Optimization 
+```
