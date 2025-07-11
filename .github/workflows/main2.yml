@@ -1,0 +1,56 @@
+name: Build CorvusOS for blossom
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 720
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Set up environment
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y git wget curl python3 openjdk-11-jdk ccache zip unzip \
+          bc make repo libncurses5 python-is-python3 rsync
+
+    - name: Initialize and sync repo
+      run: |
+        mkdir corvus && cd corvus
+        repo init --no-repo-verify -u https://gitlab.com/ProjectParadox/manifest.git -b 13
+        git clone https://github.com/AsTechpro20/local_manifests_blossom.git -b lineage-20 .repo/local_manifests
+        repo sync --force-sync -j$(nproc --all)
+
+    - name: Fix device trees
+      run: |
+        cd corvus
+        find device -type f -exec sed -i 's/lineage_/corvus_/g' {} +
+        find vendor -type f -exec sed -i 's/lineage_/corvus_/g' {} +
+        find . -type f -name "*lineage*.mk" -exec bash -c 'mv "$0" "${0//lineage_/corvus_}"' {} \;
+
+    - name: Build CorvusOS
+      run: |
+        cd corvus
+        source build/envsetup.sh
+        lunch corvus_blossom-userdebug
+        mka bacon | tee ../build.log
+
+    - name: Upload ROM to Telegram
+      run: |
+        cd corvus/out/target/product/blossom
+        ROM_FILE=$(ls *.zip | head -n1)
+        curl -F chat_id=1910625218 \
+             -F document=@"$ROM_FILE" \
+             -F caption="✅ CorvusOS build completed successfully" \
+             https://api.telegram.org/bot7863915048:AAG0PjWioCIeIlP9kDdvsTDkKfJ2J57dR-Q/sendDocument
+
+        cd ../../../../..
+        curl -F chat_id=1910625218 \
+             -F document=@"build.log" \
+             -F caption="📄 CorvusOS build log" \
+             https://api.telegram.org/bot7863915048:AAG0PjWioCIeIlP9kDdvsTDkKfJ2J57dR-Q/sendDocument
+             
