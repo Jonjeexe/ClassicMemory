@@ -20,49 +20,46 @@ jobs:
         xsltproc zip unzip openjdk-11-jdk python-is-python3 \
         libbz2-dev:i386
 
-    # 📂 Checkout the GitHub repo
+    # 📂 Clone this Actions repo
     - name: Checkout sources
       uses: actions/checkout@v3
 
     # 🛠 Install repo tool
     - name: Install repo tool
       run: |
-        sudo curl https://storage.googleapis.com/git-repo-downloads/repo > /usr/local/bin/repo
+        sudo curl https://storage.googleapis.com/git-repo-downloads/repo -o /usr/local/bin/repo
         sudo chmod a+x /usr/local/bin/repo
 
-    # 🔄 Initialize and sync repo
+    # 🔄 Initialize and sync source tree
     - name: Initialize and sync repo
       run: |
         git config --global user.name "Jonjeexe"
         git config --global user.email "jonje.exe@gmail.com"
         mkdir rom && cd rom
-        repo init -u https://github.com/AfterLifePrjkt13/android_manifest.git -b tiramisu --depth=1
+        repo init --depth=1 -u https://github.com/AfterlifeOS/android_manifest.git -b 14 --git-lfs
         git clone https://github.com/AsTechpro20/local_manifests_blossom.git -b lineage-20 .repo/local_manifests
-        repo sync -j$(nproc) --force-sync --no-clone-bundle --no-tags
+        repo sync -c --no-clone-bundle --no-tags --optimized-fetch --prune --force-sync -j$(nproc)
 
-    # 🔧 Adjust device trees
+    # 🔧 Patch device tree references
     - name: Adjust device trees
       run: |
         cd rom
-        # Replace lineage_blossom with afterlife_blossom
         find device/ -type f -name "*.mk" -exec sed -i 's/lineage_blossom/afterlife_blossom/g' {} \;
-        # Replace lineage with afterlife where it makes sense
         find device/ -type f -name "*.mk" -exec sed -i 's/lineage/afterlife/g' {} \;
         find device/ -type f -name "*.mk" -exec sed -i 's/Lineage/Afterlife/g' {} \;
 
-    # 🏗 Start building
-    - name: Start AfterlifeOS build
+    # 🏗 Build AfterlifeOS
+    - name: Build AfterlifeOS
       run: |
         cd rom
         source build/envsetup.sh
         lunch afterlife_blossom-userdebug
         make bacon -j$(nproc)
 
-    # 📤 Upload ROM to Telegram
+    # 📤 Upload output to Telegram
     - name: Upload ROM to Telegram
       run: |
         cd rom/out/target/product/blossom
         ROM_ZIP=$(ls AfterlifeOS*.zip)
         curl -F document=@"$ROM_ZIP" \
-        "https://api.telegram.org/bot7863915048:AAG0PjWioCIeIlP9kDdvsTDkKfJ2J57dR-Q/sendDocument?chat_id=1910625218&caption=✅ AfterlifeOS build complete!"
-        
+          "https://api.telegram.org/bot7863915048:AAG0PjWioCIeIlP9kDdvsTDkKfJ2J57dR-Q/sendDocument?chat_id=1910625218&caption=✅ AfterlifeOS build complete!"
