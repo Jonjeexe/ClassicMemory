@@ -1,0 +1,58 @@
+name: AfterlifeOS-Build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-rom:
+    runs-on: ubuntu-22.04
+
+    steps:
+    # Install required dependencies
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y bc bison build-essential curl flex git gnupg gperf \
+        libncurses5-dev libncurses5 libncursesw5-dev libssl-dev zlib1g-dev \
+        liblz4-tool lib32ncurses5-dev lib32z1-dev libbz2-1.0 libbz2-dev \
+        lib32bz2-dev liblzma-dev lzma lzop pngcrush rsync schedtool squashfs-tools \
+        xsltproc zip unzip openjdk-11-jdk python-is-python3
+
+    # Checkout your GitHub repo
+    - name: Checkout sources
+      uses: actions/checkout@v3
+
+    # Init repo and sync sources
+    - name: Initialize and sync repo
+      run: |
+        git config --global user.name "Jonjeexe"
+        git config --global user.email "jonje.exe@gmail.com"
+        mkdir rom && cd rom
+        repo init -u https://github.com/AfterLifePrjkt13/android_manifest.git -b tiramisu --depth=1
+        git clone https://github.com/AsTechpro20/local_manifests_blossom.git -b lineage-20 .repo/local_manifests
+        repo sync -j$(nproc) --force-sync --no-clone-bundle --no-tags
+
+    # Replace lineage_blossom with afterlife_blossom in device trees
+    - name: Adjust device trees
+      run: |
+        cd rom
+        find device/ -type f -name "*.mk" -exec sed -i 's/lineage_blossom/afterlife_blossom/g' {} \;
+        find device/ -type f -name "*.mk" -exec sed -i 's/lineage/afterlife/g' {} \;
+        find device/ -type f -name "*.mk" -exec sed -i 's/Lineage/Afterlife/g' {} \;
+
+    # Start build
+    - name: Start AfterlifeOS build
+      run: |
+        cd rom
+        source build/envsetup.sh
+        lunch afterlife_blossom-userdebug
+        make bacon -j$(nproc)
+
+    # Upload ROM to Telegram
+    - name: Upload ROM to Telegram
+      run: |
+        cd rom/out/target/product/blossom
+        ROM_ZIP=$(ls AfterlifeOS*.zip)
+        curl -F document=@"$ROM_ZIP" \
+          "https://api.telegram.org/bot7863915048:AAG0PjWioCIeIlP9kDdvsTDkKfJ2J57dR-Q/sendDocument?chat_id=1910625218&caption=AfterlifeOS Build Finished ✅"
+          
